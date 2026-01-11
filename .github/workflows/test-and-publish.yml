@@ -62,12 +62,7 @@ jobs:
         run: uv sync --extra test
 
       - name: Run tests
-        run: |
-          if [ -d tests ]; then
-            uv run pytest -v --agent-url http://localhost:9009
-          else
-            echo "No tests/ directory; skipping pytest."
-          fi
+        run: uv run pytest -v
 
       - name: Stop container and show logs
         if: always()
