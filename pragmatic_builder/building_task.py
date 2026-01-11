@@ -148,7 +148,7 @@ class BuildingGameTask:
             "not contain an existing structure. The grid might be empty. Output: "
             "\"Coordinates:Color,x,y,z;Color,x,y,z;\" items separated by \";\"; no spaces; "
             "write coordinates of all blocks that are on the grid, including the initial "
-            "coordinates; color should be capitalized."
+            "coordinates; color should be capitalized. Only one question is allowed."
         )
 
         return {

@@ -55,6 +55,17 @@ class BuildingInstructorGreenAgent:
             await self._debug_pause("Press Enter to continue...\n")
             return response
 
+        async def send_feedback(role: str, message: str) -> None:
+            if self._recorder:
+                self._recorder.record(f"GREEN -> {role}: {message}")
+            await self._tool_provider.talk_to_agent(
+                message,
+                str(req.participants[role]),
+                new_conversation=False,
+            )
+            await updater.update_status(TaskState.working, new_agent_text_message(message))
+            await self._debug_pause("Press Enter to continue...\n")
+
         results = {}
         num_correct = 0
         scored_count = 0
@@ -68,7 +79,7 @@ class BuildingInstructorGreenAgent:
                     instruction_response,
                     instruction["target_structure"],
                 )
-                feedback_response = await turn("Rita", f"Feedback: {eval_message_result}")
+                await send_feedback("Rita", f"Feedback: {eval_message_result}")
                 if correct is not None:
                     scored_count += 1
                     if correct:
@@ -77,7 +88,7 @@ class BuildingInstructorGreenAgent:
                                                    "instruction_response": instruction_response,
                                                    "eval_feedback_message": eval_message_result,
                                                    "correct": None if correct is None else int(correct),
-                                                   "response_feedback": feedback_response}
+                                                   "response_feedback": None}
 
         accuracy = (num_correct / scored_count * 100.0) if scored_count else 0.0
         # TODO: metric here to compare response to expected answer
