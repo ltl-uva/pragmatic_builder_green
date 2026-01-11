@@ -86,7 +86,12 @@ jobs:
 
       - name: Push Docker image
         if: success() && github.event_name != 'pull_request'
-        run: docker push --all-tags ghcr.io/${GITHUB_REPOSITORY,,}
+        run: |
+          echo "${{ steps.meta.outputs.tags }}" | while read -r tag; do
+            if [ -n "$tag" ]; then
+              docker push "$tag"
+            fi
+          done
 
       - name: Output image digest
         if: success() && github.event_name != 'pull_request'
