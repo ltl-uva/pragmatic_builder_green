@@ -8,5 +8,5 @@ endpoint = "http://127.0.0.1:9019"
 cmd = "python builder_agent.py --host 127.0.0.1 --port 9019"
 
 [config]
-"list1_path" = "../data/List1_FINAL_stimuli_list.csv"
-"list2_path" = "../data/List2_FINAL_stimuli_list.csv"
+"list1_path" = "data/List1_FINAL_stimuli_list.csv"
+"list2_path" = "data/List2_FINAL_stimuli_list.csv"
