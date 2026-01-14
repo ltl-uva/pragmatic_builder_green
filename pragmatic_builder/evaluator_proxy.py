@@ -2,7 +2,6 @@ import argparse
 import datetime as dt
 import os
 from pathlib import Path
-import contextlib
 import uvicorn
 import asyncio
 import logging
@@ -134,29 +133,28 @@ async def main():
     debug = args.debug or debug_env
     logging.basicConfig(level=logging.INFO if debug else logging.WARNING)
 
-    agent_url_cm = contextlib.nullcontext(f"http://{args.host}:{args.port}/")
+    agent_url = f"http://{args.host}:{args.port}/"
 
-    async with agent_url_cm as agent_url:
-        base_dir = os.getenv("AGENT_TRANSCRIPT_DIR", "logs/transcripts")
-        run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
-        transcript_path = Path(base_dir) / run_id / "conversation.log"
-        agent = BuildingInstructorGreenAgent(debug=debug, transcript_path=str(transcript_path))
-        executor = GreenExecutor(agent, debug=debug)
-        agent_card = instruction_following_evaluator_card("StructureEvaluator", agent_url)
+    base_dir = os.getenv("AGENT_TRANSCRIPT_DIR", "logs/transcripts")
+    run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
+    transcript_path = Path(base_dir) / run_id / "conversation.log"
+    agent = BuildingInstructorGreenAgent(debug=debug, transcript_path=str(transcript_path))
+    executor = GreenExecutor(agent, debug=debug)
+    agent_card = instruction_following_evaluator_card("StructureEvaluator", agent_url)
 
-        request_handler = DefaultRequestHandler(
-            agent_executor=executor,
-            task_store=InMemoryTaskStore(),
-        )
+    request_handler = DefaultRequestHandler(
+        agent_executor=executor,
+        task_store=InMemoryTaskStore(),
+    )
 
-        server = A2AStarletteApplication(
-            agent_card=agent_card,
-            http_handler=request_handler,
-        )
+    server = A2AStarletteApplication(
+        agent_card=agent_card,
+        http_handler=request_handler,
+    )
 
-        uvicorn_config = uvicorn.Config(server.build(), host=args.host, port=args.port)
-        uvicorn_server = uvicorn.Server(uvicorn_config)
-        await uvicorn_server.serve()
+    uvicorn_config = uvicorn.Config(server.build(), host=args.host, port=args.port)
+    uvicorn_server = uvicorn.Server(uvicorn_config)
+    await uvicorn_server.serve()
 
 if __name__ == '__main__':
     asyncio.run(main())
