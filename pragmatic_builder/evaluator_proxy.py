@@ -127,6 +127,7 @@ async def main():
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind the server")
     parser.add_argument("--port", type=int, default=9019, help="Port to bind the server")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--card-url", default="", help="URL for the agent card")
     args = parser.parse_args()
 
     debug_env = os.getenv("AGENT_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
