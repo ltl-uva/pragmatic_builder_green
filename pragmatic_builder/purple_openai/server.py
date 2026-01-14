@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import socket
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.events import EventQueue
@@ -89,18 +90,25 @@ def main() -> None:
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind the server")
     parser.add_argument("--port", type=int, default=9022, help="Port to bind the server")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--card-url", default="", help="URL for the agent card")
     args = parser.parse_args()
 
     debug_env = os.getenv("AGENT_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
     debug = args.debug or debug_env
     logging.basicConfig(level=logging.INFO if debug else logging.WARNING)
 
-    card = prepare_agent_card(f"http://{args.host}:{args.port}/")
+    card_url = args.card_url
+    if not card_url:
+        hostname = socket.gethostname()
+        card_url = f"http://{hostname}:{args.port}"
+
+    card = prepare_agent_card(card_url)
     request_handler = DefaultRequestHandler(
         agent_executor=OpenAIPurpleAgent(debug=debug),
         task_store=InMemoryTaskStore(),
     )
 
+    logger.info(f"Starting OpenAI purple agent on {args.host}:{args.port} with card URL: {card_url}")
     app = A2AStarletteApplication(
         agent_card=card,
         http_handler=request_handler,
