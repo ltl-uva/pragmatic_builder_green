@@ -61,11 +61,17 @@ AGENT_TRANSCRIPT_DIR=logs/transcripts AGENT_DEBUG=1 uv run python -m agentbeats.
 ## Running with Docker (not tested yet)
 
 ```bash
-# Build the image
-docker build -t my-agent .
+# Build the green agent image
+docker build -t my-agent-green -f Dockerfile .
 
-# Run the container
-docker run -p 9009:9009 my-agent
+# Build the purple agent image
+docker build -t my-agent-purple -f Dockerfile.purple .
+
+# Run the green agent (evaluation)
+docker run -p 9009:9009 my-agent-green
+
+# Run the purple builder agent
+docker run -p 9018:9018 my-agent-purple
 ```
 
 ## Testing
