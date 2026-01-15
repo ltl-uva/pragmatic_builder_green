@@ -38,6 +38,7 @@ class BuildingInstructorGreenAgent:
 
     async def run_eval(self, req: EvalRequest, updater: TaskUpdater) -> None:
         logger.info(f"Starting structure evaluation: {req}")
+
         bulding_task = BuildingGameTask(req.config["list1_path"], req.config["list2_path"])
 
         trials = bulding_task.run(None)
@@ -144,13 +145,13 @@ class BuildingInstructorGreenAgent:
                             }
             case "[ASK]":
                 content = ";".join(string_response[1:]).strip()
-                # if self._qa:
-                #     answer = await self._qa.answer(
-                #         question=content,
-                #         target_structure=target_structure,
-                #     )
-                # else:
-                answer = self._fallback_answer(content, target_structure)
+                if self._qa:
+                    answer = await self._qa.answer(
+                        question=content,
+                        target_structure=target_structure,
+                    )
+                else:
+                    answer = self._fallback_answer(content, target_structure)
                 return {"message": f"Answer: {answer}",
                         "num_correct":None,
                         "num_questions": 1,
