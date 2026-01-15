@@ -42,10 +42,14 @@ class BuildingInstructorGreenAgent:
 
         list1_path = self._resolve_path(req.config["list1_path"])
         list2_path = self._resolve_path(req.config["list2_path"])
-        bulding_task = BuildingGameTask(list1_path, list2_path)
 
-        trials = bulding_task.run(None)
-        logger.info(f"created trials {trials}")
+        # Run 8 trials with different seeds
+        num_seeds = 8
+        all_accuracies = []
+        all_avg_questions = []
+        all_results = {}
+
+        purple_agent_role = 'rita'
 
         async def turn(role: str, prompt: str) -> str:
             if self._recorder:
@@ -70,55 +74,102 @@ class BuildingInstructorGreenAgent:
             await updater.update_status(TaskState.working, new_agent_text_message(message))
             await self._debug_pause("Press Enter to continue...\n")
 
-        results = {}
-        num_correct = 0
-        scored_count = 0
-        questions_count = 0
-        # TODO: initial turn with the grid context
-        task_description = f"[TASK_DESCRIPTION] {trials['grid_context']})"
-        purple_agent_role = 'rita'
-        for speaker in [trials["instructions_A"], trials["instructions_B"]]:
-            prompt_chain = []
-            response_chain = []
-            for instruction in speaker:
-                round_questions_count = 0
-                prompt = f"{task_description}\n[START_STRUCTURE] {instruction['start_structure']}\n{instruction['instruction']}"
-                prompt_chain.append(prompt)
-                built = False
-                eval_result = {}
-                while built is not True:
-                    instruction_response = await turn(purple_agent_role, prompt)
-                    response_chain.append(instruction_response)
-                    eval_result = await self.eval_message(
-                        instruction_response,
-                        instruction["target_structure"],
-                    )
-                    round_questions_count += eval_result["num_questions"]
-                    prompt = eval_result['message']
-                    built = eval_result['built']
-                await send_feedback(purple_agent_role, f"Feedback: {eval_result['message']}")
-                if eval_result["num_correct"] is not None:
-                    scored_count += 1
-                    num_correct += eval_result["num_correct"]
-                questions_count += round_questions_count
-                results[instruction["round"]] = {"prompts": prompt_chain,
-                                                   "responses": response_chain,
-                                                   "eval_feedback_message": eval_result["message"],
-                                                   "num_correct": eval_result["num_correct"],
-                                                    "num_questions": round_questions_count,
-                                                   "response_feedback": None}
+        for seed in range(num_seeds):
+            logger.info(f"Starting trial {seed + 1}/{num_seeds} with seed {seed}")
 
+            # Send transition message between tasks (except for the first one)
+            if seed > 0:
+                transition_message = "A new task is starting, now you will play the game again."
+                await send_feedback(purple_agent_role, transition_message)
 
-        accuracy = (num_correct / scored_count * 100.0) if scored_count else 0.0
-        questions_count = questions_count/len(trials["instructions_A"] + trials["instructions_B"])
-        # TODO: metric here to compare response to expected answer
+            building_task = BuildingGameTask(list1_path, list2_path, seed=seed)
+            trials = building_task.run(None)
+            logger.info(f"Created trials for seed {seed}: {trials}")
+
+            results = {}
+            num_correct = 0
+            scored_count = 0
+            questions_count = 0
+
+            task_description = f"[TASK_DESCRIPTION] {trials['grid_context']})"
+
+            for speaker in [trials["instructions_A"], trials["instructions_B"]]:
+                prompt_chain = []
+                response_chain = []
+                for instruction in speaker:
+                    round_questions_count = 0
+                    prompt = f"{task_description}\n[START_STRUCTURE] {instruction['start_structure']}\n{instruction['instruction']}"
+                    prompt_chain.append(prompt)
+                    built = False
+                    eval_result = {}
+                    while built is not True:
+                        instruction_response = await turn(purple_agent_role, prompt)
+                        response_chain.append(instruction_response)
+                        eval_result = await self.eval_message(
+                            instruction_response,
+                            instruction["target_structure"],
+                        )
+                        round_questions_count += eval_result["num_questions"]
+                        prompt = eval_result['message']
+                        built = eval_result['built']
+                    await send_feedback(purple_agent_role, f"Feedback: {eval_result['message']}")
+                    if eval_result["num_correct"] is not None:
+                        scored_count += 1
+                        num_correct += eval_result["num_correct"]
+                    questions_count += round_questions_count
+                    results[instruction["round"]] = {
+                        "prompts": prompt_chain,
+                        "responses": response_chain,
+                        "eval_feedback_message": eval_result["message"],
+                        "num_correct": eval_result["num_correct"],
+                        "num_questions": round_questions_count,
+                        "response_feedback": None
+                    }
+
+            # Calculate metrics for this seed
+            accuracy = (num_correct / scored_count * 100.0) if scored_count else 0.0
+            avg_questions = questions_count / len(trials["instructions_A"] + trials["instructions_B"])
+
+            all_accuracies.append(accuracy)
+            all_avg_questions.append(avg_questions)
+            all_results[f"seed_{seed}"] = {
+                "accuracy": accuracy,
+                "avg_questions_per_instruction": avg_questions,
+                "results": results
+            }
+
+            logger.info(f"Seed {seed} - Accuracy: {accuracy:.2f}%, Avg Questions: {avg_questions:.2f}")
+
+        # Calculate overall averages
+        overall_accuracy = sum(all_accuracies) / len(all_accuracies) if all_accuracies else 0.0
+        overall_avg_questions = sum(all_avg_questions) / len(all_avg_questions) if all_avg_questions else 0.0
+
+        logger.info(f"Overall - Accuracy: {overall_accuracy:.2f}%, Avg Questions: {overall_avg_questions:.2f}")
+
         try:
-            result = EvalResult(accuracy=accuracy, avg_questions_per_instruction=questions_count)
+            result = EvalResult(
+                accuracy=overall_accuracy,
+                avg_questions_per_instruction=overall_avg_questions
+            )
             await updater.add_artifact(
                 parts=[
                     Part(root=TextPart(text=result.model_dump_json())),
                 ],
                 name="Result",
+            )
+
+            # Also add detailed results for each seed
+            import json
+            detailed_results = {
+                "overall_accuracy": overall_accuracy,
+                "overall_avg_questions": overall_avg_questions,
+                "individual_seeds": all_results
+            }
+            await updater.add_artifact(
+                parts=[
+                    Part(root=TextPart(text=json.dumps(detailed_results, indent=2))),
+                ],
+                name="Detailed_Results",
             )
         finally:
             self._tool_provider.reset()
@@ -137,15 +188,16 @@ class BuildingInstructorGreenAgent:
                 if content == target_structure_set:
                     return {"message": f"Correct structure built. {target_structure}",
                             "num_correct": 1,
-                            "num_questions":0,
+                            "num_questions": 0,
                             "built": True
                             }
                 else:
                     return {"message": f"Incorrect structure. Expected: {target_structure}, but got: {';'.join(content)}",
                             "num_correct": 0,
-                            "num_questions":0,
-                            "built":True
+                            "num_questions": 0,
+                            "built": True
                             }
+
             case "[ASK]":
                 content = ";".join(string_response[1:]).strip()
                 if self._qa:
@@ -156,11 +208,14 @@ class BuildingInstructorGreenAgent:
                 else:
                     answer = self._fallback_answer(content, target_structure)
                 return {"message": f"Answer: {answer}",
-                        "num_correct":None,
+                        "num_correct": None,
                         "num_questions": 1,
                         "built": False}
+
+
             case _:
                 raise ServerError(error=InvalidParamsError(message="Invalid action in response"))
+
 
     @staticmethod
     def _fallback_answer(question: str, target_structure: str) -> str:
@@ -172,6 +227,7 @@ class BuildingInstructorGreenAgent:
         if "color" in question.lower() and unique_colors:
             return f"Colors in target: {', '.join(unique_colors)}."
         return "I can answer questions about the target structure."
+
 
     @staticmethod
     def _normalize_structure(items) -> set[str]:
@@ -188,6 +244,7 @@ class BuildingInstructorGreenAgent:
             coords = [p.strip() for p in parts[1:]]
             normalized.add(",".join([color, *coords]))
         return normalized
+
 
     @staticmethod
     def _resolve_path(path_str: str) -> str:

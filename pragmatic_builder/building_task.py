@@ -8,11 +8,12 @@ from typing import Any, Dict, List
 class BuildingGameTask:
     """Task for generating building game instructions with two speakers (Pia and Lisa)."""
 
-    def __init__(self, list1_path: str, list2_path: str) -> None:
+    def __init__(self, list1_path: str, list2_path: str, seed: int | None = None) -> None:
         self.list1_path = list1_path
         self.list2_path = list2_path
         self.list1_data = self._load_csv(list1_path)
         self.list2_data = self._load_csv(list2_path)
+        self.rng = random.Random(seed)
 
         # Fixed orderings for each speaker
         self.LisaOrdering = [
@@ -92,15 +93,15 @@ class BuildingGameTask:
 
         # Step 1: Randomly choose speaker order
         speakers = ['Pia', 'Lisa']
-        first_speaker = random.choice(speakers)
+        first_speaker = self.rng.choice(speakers)
         second_speaker = 'Lisa' if first_speaker == 'Pia' else 'Pia'
 
         # Step 2: Randomly choose list for fully_spec trials
-        fully_spec_list = random.choice([1, 2])
+        fully_spec_list = self.rng.choice([1, 2])
         fully_spec_data = self.list1_data if fully_spec_list == 1 else self.list2_data
 
         # Step 3: Randomly choose list for color_under and number_under trials (critical trials)
-        underspec_list = random.choice([1, 2])
+        underspec_list = self.rng.choice([1, 2])
         underspec_data = self.list1_data if underspec_list == 1 else self.list2_data
 
         # Categorize trials from both lists
@@ -127,10 +128,10 @@ class BuildingGameTask:
                                                                                   'number_under'][:]
 
         # Randomize the pools
-        random.shuffle(first_fully_spec_pool)
-        random.shuffle(first_critical_pool)
-        random.shuffle(second_fully_spec_pool)
-        random.shuffle(second_critical_pool)
+        self.rng.shuffle(first_fully_spec_pool)
+        self.rng.shuffle(first_critical_pool)
+        self.rng.shuffle(second_fully_spec_pool)
+        self.rng.shuffle(second_critical_pool)
 
         # Helper function to create instruction with specific version
         def create_instruction_with_version(trial_base: str, speaker: str, list_id: int,
