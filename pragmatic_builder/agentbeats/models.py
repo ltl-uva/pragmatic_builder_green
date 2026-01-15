@@ -6,5 +6,5 @@ class EvalRequest(BaseModel):
     config: dict[str, Any]
 
 class EvalResult(BaseModel):
-    status: str # role of winner
-    feedback: dict[str, Any]
+    status: str # e.g., "ok", "failure"
+    details: dict[str, Any]
