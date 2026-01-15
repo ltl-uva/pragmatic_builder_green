@@ -152,7 +152,8 @@ async def test_green_agent_with_question_dummy(monkeypatch):
         },
     )
     result = await agent.run_eval(req, DummyUpdater())
-    assert result.status == "ok"
+    assert type(result.accuracy) is float
+    assert type(result.avg_questions_per_instruction) is float
 
     server.stop()
     server.join(timeout=2)

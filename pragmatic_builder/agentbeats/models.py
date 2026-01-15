@@ -6,5 +6,5 @@ class EvalRequest(BaseModel):
     config: dict[str, Any]
 
 class EvalResult(BaseModel):
-    status: str # e.g., "ok", "failure"
-    details: dict[str, Any]
+    accuracy: float
+    avg_questions_per_instruction: float
